@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>25.5 합주 캘린더</title>
+<style>
+:root {
+  --bg: #f5f3ff;
+  --card: #ffffff;
+  --primary: #7c3aed;
+  --primary-soft: #ede9fe;
+  --primary-dark: #6d28d9;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --green: #10b981;
+  --green-soft: #d1fae5;
+  --red: #ef4444;
+  --yellow-soft: #fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.15);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; padding: 0; }
+input, textarea { font-family: inherit; font-size: 16px; }
+
+.app { max-width: 1200px; margin: 0 auto; padding: 16px; }
+
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; gap: 12px;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--primary-soft); display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+}
+.brand-name { font-size: 22px; font-weight: 800; }
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+.btn {
+  padding: 10px 16px; border-radius: 10px; font-weight: 600; font-size: 14px;
+  background: white; border: 1px solid var(--border); transition: all .15s;
+}
+.btn:hover { background: var(--primary-soft); }
+.btn-primary { background: var(--primary); color: white; border-color: var(--primary); }
+.btn-primary:hover { background: var(--primary-dark); }
+.sync-badge {
+  display: none; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--green-soft); color: #065f46;
+  align-items: center; gap: 6px;
+}
+.sync-badge.show { display: inline-flex; }
+.sync-dot { width: 8px; height: 8px; background: var(--green); border-radius: 50%; }
+
+.notice {
+  background: var(--yellow-soft); padding: 12px 16px; border-radius: 12px;
+  margin-bottom: 12px; font-size: 14px;
+}
+
+.members {
+  background: var(--card); padding: 12px 16px; border-radius: 14px; margin-bottom: 16px;
+  display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow);
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.members-label { font-weight: 700; font-size: 14px; color: var(--muted); flex-shrink: 0; }
+.member-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px 6px 12px; border-radius: 999px;
+  background: #f9fafb; border: 1px solid var(--border);
+  font-size: 14px; font-weight: 600; flex-shrink: 0;
+  transition: all .15s;
+}
+.member-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
+.member-chip-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: white; border: 1px solid var(--border); color: var(--muted);
+  font-size: 12px;
+}
+.member-chip.active .member-chip-check {
+  background: white; color: var(--primary); border-color: white;
+}
+
+.layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+@media (max-width: 880px) { .layout { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card); padding: 16px; border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-title { font-size: 18px; font-weight: 800; }
+.cal-nav { display: flex; gap: 4px; }
+.cal-nav button {
+  width: 36px; height: 36px; border-radius: 8px; background: #f9fafb; border: 1px solid var(--border);
+  font-size: 14px;
+}
+.cal-nav button:hover { background: var(--primary-soft); }
+
+.weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+.weekday { text-align: center; padding: 8px 0; font-size: 12px; font-weight: 700; color: var(--muted); }
+.weekday.sun { color: var(--red); }
+.weekday.sat { color: #2563eb; }
+
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.day {
+  aspect-ratio: 1 / 1.15; padding: 6px; border-radius: 8px;
+  background: #fafafa; border: 1px solid transparent;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start;
+  font-size: 13px; cursor: pointer; transition: all .1s;
+  position: relative; user-select: none; min-height: 0;
+}
+.day:hover { background: var(--primary-soft); }
+.day.other-month { color: #d1d5db; cursor: default; }
+.day.other-month:hover { background: #fafafa; }
+.day .day-num { font-weight: 600; font-size: 13px; line-height: 1; }
+.day.sun .day-num { color: var(--red); }
+.day.sat .day-num { color: #2563eb; }
+.day.today { background: var(--primary-soft); }
+.day.today .day-num { color: var(--primary); font-weight: 800; }
+.day.fixed { background: var(--green); color: white; }
+.day.fixed .day-num { color: white; }
+.day.has-availability { background: var(--primary-soft); }
+.day.selected-pending { background: var(--primary); color: white; outline: 2px solid var(--primary-dark); outline-offset: -2px; }
+.day.selected-pending .day-num { color: white; }
+.day.removing-pending { opacity: 0.5; }
+
+.day .badge-row {
+  display: flex; gap: 2px; flex-wrap: wrap; margin-top: 3px;
+}
+.avail-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--primary); opacity: 0.6;
+}
+.day.fixed .avail-dot { background: white; }
+.day .song-tag {
+  margin-top: auto; font-size: 10px; padding: 2px 5px; border-radius: 4px;
+  background: rgba(255,255,255,0.25); color: inherit; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 2px;
+}
+.day:not(.fixed) .song-tag { background: var(--green-soft); color: #065f46; }
+
+.savebar {
+  position: sticky; bottom: 12px; margin-top: 12px;
+  display: none; background: var(--primary); color: white;
+  padding: 12px 16px; border-radius: 14px; box-shadow: var(--shadow-lg);
+  align-items: center; justify-content: space-between; gap: 12px; z-index: 10;
+}
+.savebar.show { display: flex; }
+.savebar-info { font-size: 14px; font-weight: 600; }
+.savebar-btns { display: flex; gap: 8px; }
+.savebar .btn { background: white; color: var(--primary); border-color: white; }
+.savebar .btn-cancel { background: transparent; color: white; border-color: rgba(255,255,255,0.3); }
+
+.upcoming-list { display: flex; flex-direction: column; gap: 10px; }
+.upcoming-item {
+  padding: 12px; border-radius: 12px; background: #f9fafb; border: 1px solid var(--border);
+  cursor: pointer; transition: all .15s;
+}
+.upcoming-item:hover { background: var(--primary-soft); border-color: var(--primary); }
+.upcoming-date { font-weight: 700; font-size: 14px; color: var(--green); display: flex; align-items: center; gap: 6px; }
+.upcoming-meta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.upcoming-songs { font-size: 12px; margin-top: 4px; color: var(--text); }
+.empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px 0; }
+
+/* Modal */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+  display: none; align-items: center; justify-content: center; padding: 16px;
+}
+.modal-bg.show { display: flex; }
+.modal {
+  background: white; border-radius: 16px; padding: 20px; width: 100%; max-width: 480px;
+  max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-title { font-size: 18px; font-weight: 800; }
+.modal-close { font-size: 24px; color: var(--muted); width: 32px; height: 32px; border-radius: 8px; }
+.modal-close:hover { background: #f3f4f6; }
+
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.field input, .field textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 15px;
+}
+.field textarea { resize: vertical; min-height: 60px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.songs-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.song-row { display: flex; gap: 6px; align-items: flex-start; }
+.song-row input { flex: 1; }
+.song-row .song-memo { width: 100%; }
+.song-row-content { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.song-row .del-btn {
+  width: 32px; height: 38px; border-radius: 8px; background: #fee2e2; color: #dc2626;
+  font-size: 16px; flex-shrink: 0;
+}
+
+.modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+.modal-actions .btn { flex: 1; padding: 12px; }
+
+.avail-summary {
+  background: var(--primary-soft); padding: 10px 12px; border-radius: 10px; margin-bottom: 12px;
+  font-size: 13px;
+}
+.avail-summary strong { color: var(--primary); }
+.avail-members { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.avail-tag {
+  background: white; padding: 3px 8px; border-radius: 999px; font-size: 12px;
+  border: 1px solid var(--border);
+}
+
+.fix-toggle {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+  background: #f9fafb; border-radius: 10px; margin-bottom: 12px;
+  cursor: pointer; user-select: none;
+}
+.fix-toggle.fixed { background: var(--green-soft); }
+.fix-toggle input { width: 18px; height: 18px; cursor: pointer; }
+.fix-toggle-label { font-weight: 600; font-size: 14px; }
+
+.share-section { margin-bottom: 16px; }
+.share-section-title { font-weight: 700; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.share-url-box {
+  display: flex; gap: 6px; align-items: center;
+}
+.share-url-box input { flex: 1; font-size: 13px; padding: 8px 10px; }
+.share-info { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(31,41,55,0.95); color: white; padding: 10px 18px; border-radius: 999px;
+  font-size: 14px; z-index: 1000; opacity: 0; transition: opacity .2s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 640px) {
+  .app { padding: 10px; }
+  .brand-name { font-size: 18px; }
+  .logo { width: 34px; height: 34px; font-size: 16px; }
+  .btn { padding: 8px 12px; font-size: 13px; }
+  .members { padding: 8px 12px; }
+  .day { padding: 4px; aspect-ratio: 1 / 1.2; }
+  .day .day-num { font-size: 12px; }
+  .day .song-tag { font-size: 9px; padding: 1px 3px; }
+  .modal { padding: 16px; border-radius: 16px 16px 0 0; max-width: 100%; align-self: flex-end; max-height: 92vh; }
+  .modal-bg { align-items: flex-end; padding: 0; }
+  .field-row { grid-template-columns: 1fr; }
+  .layout { gap: 10px; }
+  .card { padding: 12px; border-radius: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">🎸</div>
+      <div class="brand-name" id="brandName">25.5</div>
+      <span class="sync-badge" id="syncBadge"><span class="sync-dot"></span>실시간 공유 중</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" id="todayBtn">오늘</button>
+      <button class="btn btn-primary" id="shareBtn">🔗 공유</button>
+    </div>
+  </div>
+
+  <div class="notice" id="meNotice">👋 먼저 본인이 누군지 선택하세요 (멤버 옆 ✓ 버튼)</div>
+
+  <div class="members" id="membersBar"></div>
+
+  <div class="layout">
+    <div class="card">
+      <div class="cal-head">
+        <div class="cal-title" id="calTitle">2026년 5월</div>
+        <div class="cal-nav">
+          <button id="prevBtn">◀</button>
+          <button id="nextBtn">▶</button>
+        </div>
+      </div>
+      <div class="weekdays">
+        <div class="weekday sun">일</div><div class="weekday">월</div><div class="weekday">화</div>
+        <div class="weekday">수</div><div class="weekday">목</div><div class="weekday">금</div>
+        <div class="weekday sat">토</div>
+      </div>
+      <div class="days" id="days"></div>
+      <div class="savebar" id="savebar">
+        <div class="savebar-info" id="savebarInfo">변경사항 0개</div>
+        <div class="savebar-btns">
+          <button class="btn btn-cancel" id="cancelBtn">취소</button>
+          <button class="btn" id="saveBtn">저장</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cal-head">
+        <div class="cal-title">📅 다가오는 합주</div>
+      </div>
+      <div class="upcoming-list" id="upcomingList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 날짜 상세 모달 -->
+<div class="modal-bg" id="dateModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="dateModalTitle">날짜</div>
+      <button class="modal-close" data-close-modal="dateModal">×</button>
+    </div>
+    <div class="avail-summary" id="availSummary"></div>
+    <label class="fix-toggle" id="fixToggle">
+      <input type="checkbox" id="fixCheck">
+      <span class="fix-toggle-label">✅ 이 날로 합주 확정</span>
+    </label>
+    <div class="field-row">
+      <div class="field">
+        <label>시간</label>
+        <input id="infoTime" placeholder="예: 19:00~22:00">
+      </div>
+      <div class="field">
+        <label>장소</label>
+        <input id="infoPlace" placeholder="예: 합주실 A">
+      </div>
+    </div>
+    <div class="field">
+      <label>합주할 곡</label>
+      <div class="songs-list" id="songsList"></div>
+      <button class="btn" id="addSongBtn" style="width: 100%;">+ 곡 추가</button>
+    </div>
+    <div class="field">
+      <label>전체 메모</label>
+      <textarea id="infoNote" placeholder="공지, 준비물 등"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" data-close-modal="dateModal" style="flex: 0 0 auto;">닫기</button>
+      <button class="btn btn-primary" id="saveDateBtn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 공유 모달 -->
+<div class="modal-bg" id="shareModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">🔗 공유하기</div>
+      <button class="modal-close" data-close-modal="shareModal">×</button>
+    </div>
+    <div id="shareNotConnected">
+      <div class="share-section">
+        <div class="share-section-title">☁️ 실시간 공유 (구글 시트처럼)</div>
+        <p class="share-info">방을 만들면 링크 하나로 멤버 모두가 같은 캘린더를 실시간으로 보고 편집할 수 있어요. 한 번만 만들면 끝.</p>
+        <button class="btn btn-primary" id="createRoomBtn" style="width: 100%; padding: 12px; margin-top: 8px;">🎉 새 방 만들기</button>
+      </div>
+      <div class="share-section">
+        <div class="share-section-title">🔑 기존 방 참여</div>
+        <p class="share-info">멤버한테 받은 방 코드가 있으면 입력하세요.</p>
+        <div class="share-url-box">
+          <input id="joinRoomInput" placeholder="방 코드 입력">
+          <button class="btn btn-primary" id="joinRoomBtn">참여</button>
+        </div>
+      </div>
+    </div>
+    <div id="shareConnected" style="display:none;">
+      <div class="share-section">
+        <div class="share-section-title">🌐 멤버에게 공유할 링크</div>
+        <div class="share-url-box">
+          <input id="roomLinkInput" readonly>
+          <button class="btn btn-primary" id="copyLinkBtn">복사</button>
+        </div>
+        <p class="share-info">이 링크를 카톡/단톡방에 보내면 멤버들이 같은 캘린더에 들어와서 편집할 수 있어요. 변경사항은 실시간으로 동기화됩니다.</p>
+      </div>
+      <div class="share-section">
+        <div class="share-section-title">방 코드</div>
+        <div class="share-url-box">
+          <input id="roomCodeInput" readonly>
+          <button class="btn" id="copyCodeBtn">복사</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" id="leaveRoomBtn" style="background: #fee2e2; color: #dc2626; border-color: #fee2e2;">방 나가기 (로컬로 전환)</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script>
+// ============ Firebase 설정 ============
+const firebaseConfig = {
+  apiKey: "AIzaSyCxpI4a4Ycq1wneCrSNUI9kB8Llnpp2FXw",
+  authDomain: "band-calendar-52563.firebaseapp.com",
+  databaseURL: "https://band-calendar-52563-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "band-calendar-52563",
+  storageBucket: "band-calendar-52563.firebasestorage.app",
+  messagingSenderId: "479656877232",
+  appId: "1:479656877232:web:a668b29ced4e8de51a2f75",
+  measurementId: "G-ML55004JHK"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ============ 상수 & 기본 상태 ============
+const MEMBERS = ['고재규', '김승현', '남혜원', '박세웅', '옥윤성', '이상윤'];
+const STORAGE_KEY = 'band-25-5-state';
+const ME_KEY = 'band-25-5-me';
+
+const DEFAULT_STATE = {
+  bandName: '25.5',
+  members: MEMBERS.slice(),
+  availability: {}, // { 'YYYY-MM-DD': [memberIdx, ...] }
+  fixed: {},        // { 'YYYY-MM-DD': true }
+  songs: {},        // { 'YYYY-MM-DD': [{name, memo}, ...] }
+  info: {},         // { 'YYYY-MM-DD': {time, place, note} }
+};
+
+let state = loadLocal();
+let me = parseInt(localStorage.getItem(ME_KEY) ?? '-1', 10);
+if (isNaN(me)) me = -1;
+
+let viewYear, viewMonth;
+const today = new Date();
+viewYear = today.getFullYear();
+viewMonth = today.getMonth();
+
+let currentDateKey = null;
+let pendingChanges = new Map(); // dateKey -> 'add' | 'remove'
+let dragMode = null; // 'add' | 'remove' | null (during drag)
+let isDragging = false;
+
+let roomId = null;
+let roomRef = null;
+let isApplyingRemote = false;
+let pushDebounce = null;
+
+// ============ 로컬 저장소 ============
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return Object.assign({}, DEFAULT_STATE, JSON.parse(raw));
+  } catch(e) {}
+  return JSON.parse(JSON.stringify(DEFAULT_STATE));
+}
+function saveLocal() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+// ============ 유틸 ============
+function fmtDate(y, m, d) {
+  return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function parseKey(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function getEffectiveAvail(key) {
+  const list = (state.availability[key] || []).slice();
+  if (me < 0) return list;
+  const action = pendingChanges.get(key);
+  if (action === 'add' && !list.includes(me)) list.push(me);
+  if (action === 'remove') return list.filter(x => x !== me);
+  return list;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ============ Firebase 동기화 ============
+function getRoomFromUrl() {
+  const params = new URLSearchParams(location.search);
+  return params.get('room');
+}
+function setRoomInUrl(id) {
+  const url = new URL(location.href);
+  if (id) url.searchParams.set('room', id);
+  else url.searchParams.delete('room');
+  try { history.replaceState(null, '', url.toString()); } catch(e) {}
+}
+function genRoomId() {
+  const chars = 'abcdefghijkmnpqrstuvwxyz23456789';
+  let s = '';
+  for (let i = 0; i < 8; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return s;
+}
+function connectRoom(id) {
+  if (roomRef) roomRef.off();
+  roomId = id;
+  setRoomInUrl(id);
+  roomRef = db.ref('rooms/' + id);
+  roomRef.on('value', snap => {
+    const data = snap.val();
+    if (data) {
+      isApplyingRemote = true;
+      state = Object.assign({}, DEFAULT_STATE, data);
+      // 멤버는 항상 고정
+      state.members = MEMBERS.slice();
+      saveLocal();
+      render();
+      isApplyingRemote = false;
+    } else {
+      // 방이 비어있으면 현재 로컬 상태를 푸시
+      pushNow();
+    }
+  }, err => {
+    console.error('Firebase 연결 오류:', err);
+    showToast('연결 오류 — ' + err.message);
+  });
+  document.getElementById('syncBadge').classList.add('show');
+}
+function disconnectRoom() {
+  if (roomRef) { roomRef.off(); roomRef = null; }
+  roomId = null;
+  setRoomInUrl(null);
+  document.getElementById('syncBadge').classList.remove('show');
+}
+function schedulePush() {
+  if (!roomRef || isApplyingRemote) return;
+  if (pushDebounce) clearTimeout(pushDebounce);
+  pushDebounce = setTimeout(pushNow, 600);
+}
+function pushNow() {
+  if (!roomRef || isApplyingRemote) return;
+  const payload = {
+    bandName: state.bandName,
+    availability: state.availability,
+    fixed: state.fixed,
+    songs: state.songs,
+    info: state.info,
+    updatedAt: firebase.database.ServerValue.TIMESTAMP,
+  };
+  roomRef.set(payload).catch(err => {
+    console.error('푸시 오류:', err);
+    showToast('저장 실패 — ' + err.message);
+  });
+}
+
+// ============ 렌더링 ============
+function render() {
+  document.getElementById('brandName').textContent = state.bandName || '25.5';
+  renderMembers();
+  renderCalendar();
+  renderUpcoming();
+  renderSavebar();
+  document.getElementById('meNotice').style.display = (me < 0) ? 'block' : 'none';
+}
+
+function renderMembers() {
+  const bar = document.getElementById('membersBar');
+  bar.innerHTML = '<span class="members-label">멤버:</span>';
+  MEMBERS.forEach((name, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'member-chip' + (i === me ? ' active' : '');
+    chip.innerHTML = `<span>${name}</span><span class="member-chip-check">${i === me ? '✓' : '○'}</span>`;
+    chip.onclick = () => {
+      if (pendingChanges.size > 0) {
+        if (!confirm('저장하지 않은 변경사항이 있어요. 본인을 바꾸면 사라져요. 계속할까요?')) return;
+        pendingChanges.clear();
+      }
+      me = (me === i) ? -1 : i;
+      localStorage.setItem(ME_KEY, me);
+      render();
+    };
+    bar.appendChild(chip);
+  });
+}
+
+function renderCalendar() {
+  document.getElementById('calTitle').textContent = `${viewYear}년 ${viewMonth+1}월`;
+  const days = document.getElementById('days');
+  days.innerHTML = '';
+  const first = new Date(viewYear, viewMonth, 1);
+  const startDay = first.getDay(); // 0=일
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+  const todayKey = fmtDate(today.getFullYear(), today.getMonth(), today.getDate());
+
+  for (let i = 0; i < 42; i++) {
+    let dayNum, m, y, isOther = false;
+    if (i < startDay) {
+      dayNum = prevMonthDays - startDay + i + 1;
+      m = viewMonth - 1; y = viewYear;
+      if (m < 0) { m = 11; y--; }
+      isOther = true;
+    } else if (i >= startDay + daysInMonth) {
+      dayNum = i - startDay - daysInMonth + 1;
+      m = viewMonth + 1; y = viewYear;
+      if (m > 11) { m = 0; y++; }
+      isOther = true;
+    } else {
+      dayNum = i - startDay + 1;
+      m = viewMonth; y = viewYear;
+    }
+    const key = fmtDate(y, m, dayNum);
+    const dow = i % 7;
+    const cell = document.createElement('div');
+    cell.className = 'day' + (isOther ? ' other-month' : '') + (dow === 0 ? ' sun' : '') + (dow === 6 ? ' sat' : '');
+    if (key === todayKey && !isOther) cell.classList.add('today');
+    const fixed = state.fixed[key];
+    if (fixed) cell.classList.add('fixed');
+    const eff = getEffectiveAvail(key);
+    if (eff.length > 0 && !fixed) cell.classList.add('has-availability');
+    const pending = pendingChanges.get(key);
+    if (pending === 'add') cell.classList.add('selected-pending');
+    if (pending === 'remove') cell.classList.add('removing-pending');
+
+    const num = document.createElement('div');
+    num.className = 'day-num';
+    num.textContent = dayNum;
+    cell.appendChild(num);
+
+    if (!isOther) {
+      const badges = document.createElement('div');
+      badges.className = 'badge-row';
+      eff.forEach(() => {
+        const dot = document.createElement('span');
+        dot.className = 'avail-dot';
+        badges.appendChild(dot);
+      });
+      cell.appendChild(badges);
+      const songCount = (state.songs[key] || []).length;
+      if (songCount > 0) {
+        const tag = document.createElement('div');
+        tag.className = 'song-tag';
+        tag.textContent = `🎵 ${songCount}곡`;
+        cell.appendChild(tag);
+      }
+    }
+
+    if (!isOther) {
+      cell.onclick = (e) => onDayClick(key, e);
+      cell.dataset.key = key;
+      // 모바일 길게 누르기 → 상세 모달
+      let pressTimer = null;
+      cell.addEventListener('touchstart', (e) => {
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          openDateModal(key);
+        }, 500);
+      }, {passive: true});
+      cell.addEventListener('touchend', () => {
+        if (pressTimer) clearTimeout(pressTimer);
+        pressTimer = null;
+      });
+      cell.addEventListener('touchmove', () => {
+        if (pressTimer) clearTimeout(pressTimer);
+        pressTimer = null;
+      });
+      // 우클릭 → 상세 모달
+      cell.oncontextmenu = (e) => {
+        e.preventDefault();
+        openDateModal(key);
+      };
+    }
+    days.appendChild(cell);
+  }
+}
+
+function onDayClick(key, e) {
+  // 기본 동작: 본인이 선택 안 했으면 → 안내 / 선택 했으면 → 가능일 토글
+  if (me < 0) {
+    showToast('먼저 본인 멤버를 선택하세요');
+    return;
+  }
+  // shift / cmd / 길게 → 상세 모달
+  if (e && (e.shiftKey || e.metaKey || e.ctrlKey)) {
+    openDateModal(key);
+    return;
+  }
+  togglePending(key);
+}
+
+function togglePending(key) {
+  const isCurrentlyAvail = (state.availability[key] || []).includes(me);
+  const cur = pendingChanges.get(key);
+  if (cur) {
+    pendingChanges.delete(key);
+  } else if (isCurrentlyAvail) {
+    pendingChanges.set(key, 'remove');
+  } else {
+    pendingChanges.set(key, 'add');
+  }
+  renderCalendar();
+  renderSavebar();
+}
+
+function renderSavebar() {
+  const bar = document.getElementById('savebar');
+  if (pendingChanges.size === 0) {
+    bar.classList.remove('show');
+    return;
+  }
+  bar.classList.add('show');
+  let adds = 0, rems = 0;
+  pendingChanges.forEach(v => v === 'add' ? adds++ : rems++);
+  let txt = '';
+  if (adds) txt += `추가 ${adds}일`;
+  if (rems) txt += (txt ? ' · ' : '') + `삭제 ${rems}일`;
+  document.getElementById('savebarInfo').textContent = txt;
+}
+
+function commitPending() {
+  pendingChanges.forEach((action, key) => {
+    if (!state.availability[key]) state.availability[key] = [];
+    const idx = state.availability[key].indexOf(me);
+    if (action === 'add' && idx < 0) state.availability[key].push(me);
+    if (action === 'remove' && idx >= 0) state.availability[key].splice(idx, 1);
+    if (state.availability[key].length === 0) delete state.availability[key];
+  });
+  pendingChanges.clear();
+  saveLocal();
+  schedulePush();
+  render();
+  showToast('저장됐어요');
+}
+
+function renderUpcoming() {
+  const list = document.getElementById('upcomingList');
+  list.innerHTML = '';
+  const todayKey = fmtDate(today.getFullYear(), today.getMonth(), today.getDate());
+  const fixedKeys = Object.keys(state.fixed).filter(k => state.fixed[k] && k >= todayKey).sort();
+  if (fixedKeys.length === 0) {
+    list.innerHTML = '<div class="empty">아직 확정된 합주가 없어요.<br>날짜를 길게 눌러 확정해보세요.</div>';
+    return;
+  }
+  fixedKeys.slice(0, 8).forEach(key => {
+    const d = parseKey(key);
+    const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+    const item = document.createElement('div');
+    item.className = 'upcoming-item';
+    const info = state.info[key] || {};
+    const songs = state.songs[key] || [];
+    const songStr = songs.length ? songs.map(s => s.name).filter(Boolean).join(', ') : '';
+    item.innerHTML = `
+      <div class="upcoming-date">🟢 ${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${dow})</div>
+      ${(info.time || info.place) ? `<div class="upcoming-meta">⏰ ${info.time||'-'} · 📍 ${info.place||'-'}</div>` : ''}
+      ${songStr ? `<div class="upcoming-songs">🎵 ${songStr}</div>` : ''}
+    `;
+    item.onclick = () => openDateModal(key);
+    list.appendChild(item);
+  });
+}
+
+// ============ 날짜 상세 모달 ============
+function openDateModal(key) {
+  currentDateKey = key;
+  const d = parseKey(key);
+  const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+  document.getElementById('dateModalTitle').textContent =
+    `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${dow})`;
+  // 가능 멤버 요약
+  const eff = state.availability[key] || [];
+  const summary = document.getElementById('availSummary');
+  if (eff.length === 0) {
+    summary.innerHTML = '아직 가능한 멤버 없음';
+  } else {
+    summary.innerHTML = `가능한 멤버: <strong>${eff.length}/${MEMBERS.length}명</strong>`;
+    const tags = document.createElement('div');
+    tags.className = 'avail-members';
+    eff.forEach(i => {
+      const t = document.createElement('span');
+      t.className = 'avail-tag';
+      t.textContent = MEMBERS[i];
+      tags.appendChild(t);
+    });
+    summary.appendChild(tags);
+  }
+  // 확정 토글
+  const fixed = !!state.fixed[key];
+  document.getElementById('fixCheck').checked = fixed;
+  document.getElementById('fixToggle').classList.toggle('fixed', fixed);
+  // 시간/장소/메모
+  const info = state.info[key] || {};
+  document.getElementById('infoTime').value = info.time || '';
+  document.getElementById('infoPlace').value = info.place || '';
+  document.getElementById('infoNote').value = info.note || '';
+  // 곡 목록
+  renderSongsInModal();
+  document.getElementById('dateModal').classList.add('show');
+}
+
+function renderSongsInModal() {
+  const wrap = document.getElementById('songsList');
+  wrap.innerHTML = '';
+  const songs = (state.songs[currentDateKey] || []).slice();
+  if (songs.length === 0) songs.push({name:'', memo:''});
+  songs.forEach((song, idx) => {
+    const row = document.createElement('div');
+    row.className = 'song-row';
+    row.innerHTML = `
+      <div class="song-row-content">
+        <input class="song-name" placeholder="곡 이름" value="${escapeHtml(song.name||'')}">
+        <input class="song-memo" placeholder="메모 (키, 파트 등)" value="${escapeHtml(song.memo||'')}">
+      </div>
+      <button class="del-btn" data-idx="${idx}">×</button>
+    `;
+    row.querySelector('.del-btn').onclick = () => {
+      const cur = collectSongs();
+      cur.splice(idx, 1);
+      state.songs[currentDateKey] = cur;
+      renderSongsInModal();
+    };
+    wrap.appendChild(row);
+  });
+}
+function collectSongs() {
+  const rows = document.querySelectorAll('#songsList .song-row');
+  const out = [];
+  rows.forEach(r => {
+    const name = r.querySelector('.song-name').value.trim();
+    const memo = r.querySelector('.song-memo').value.trim();
+    if (name || memo) out.push({name, memo});
+  });
+  return out;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+document.getElementById('addSongBtn').onclick = () => {
+  const cur = collectSongs();
+  cur.push({name:'', memo:''});
+  state.songs[currentDateKey] = cur;
+  renderSongsInModal();
+};
+
+document.getElementById('fixCheck').onchange = (e) => {
+  document.getElementById('fixToggle').classList.toggle('fixed', e.target.checked);
+};
+
+document.getElementById('saveDateBtn').onclick = () => {
+  const key = currentDateKey;
+  // 확정
+  if (document.getElementById('fixCheck').checked) state.fixed[key] = true;
+  else delete state.fixed[key];
+  // 정보
+  const time = document.getElementById('infoTime').value.trim();
+  const place = document.getElementById('infoPlace').value.trim();
+  const note = document.getElementById('infoNote').value.trim();
+  if (time || place || note) state.info[key] = {time, place, note};
+  else delete state.info[key];
+  // 곡
+  const songs = collectSongs();
+  if (songs.length > 0) state.songs[key] = songs;
+  else delete state.songs[key];
+  saveLocal();
+  schedulePush();
+  closeModal('dateModal');
+  render();
+  showToast('저장됐어요');
+};
+
+// ============ 모달 공통 ============
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+document.querySelectorAll('[data-close-modal]').forEach(btn => {
+  btn.onclick = () => closeModal(btn.dataset.closeModal);
+});
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.onclick = (e) => { if (e.target === bg) bg.classList.remove('show'); };
+});
+
+// ============ 공유 모달 ============
+document.getElementById('shareBtn').onclick = () => {
+  document.getElementById('shareNotConnected').style.display = roomId ? 'none' : 'block';
+  document.getElementById('shareConnected').style.display = roomId ? 'block' : 'none';
+  if (roomId) {
+    document.getElementById('roomLinkInput').value = location.origin + location.pathname + '?room=' + roomId;
+    document.getElementById('roomCodeInput').value = roomId;
+  }
+  document.getElementById('shareModal').classList.add('show');
+};
+
+document.getElementById('createRoomBtn').onclick = () => {
+  const id = genRoomId();
+  connectRoom(id);
+  showToast('방 생성됨!');
+  // 모달 갱신
+  document.getElementById('shareNotConnected').style.display = 'none';
+  document.getElementById('shareConnected').style.display = 'block';
+  document.getElementById('roomLinkInput').value = location.origin + location.pathname + '?room=' + id;
+  document.getElementById('roomCodeInput').value = id;
+};
+
+document.getElementById('joinRoomBtn').onclick = () => {
+  const id = document.getElementById('joinRoomInput').value.trim();
+  if (!id) { showToast('방 코드를 입력하세요'); return; }
+  connectRoom(id);
+  showToast('방 참여 완료!');
+  document.getElementById('shareNotConnected').style.display = 'none';
+  document.getElementById('shareConnected').style.display = 'block';
+  document.getElementById('roomLinkInput').value = location.origin + location.pathname + '?room=' + id;
+  document.getElementById('roomCodeInput').value = id;
+};
+
+document.getElementById('copyLinkBtn').onclick = () => {
+  const inp = document.getElementById('roomLinkInput');
+  inp.select(); inp.setSelectionRange(0, 9999);
+  navigator.clipboard.writeText(inp.value).then(() => showToast('링크 복사됨'));
+};
+document.getElementById('copyCodeBtn').onclick = () => {
+  const inp = document.getElementById('roomCodeInput');
+  inp.select(); inp.setSelectionRange(0, 9999);
+  navigator.clipboard.writeText(inp.value).then(() => showToast('코드 복사됨'));
+};
+
+document.getElementById('leaveRoomBtn').onclick = () => {
+  if (!confirm('방을 나가면 이 캘린더는 다시 본인 브라우저에만 저장돼요. 계속할까요?')) return;
+  disconnectRoom();
+  closeModal('shareModal');
+  showToast('방에서 나왔어요');
+};
+
+// ============ 네비게이션 ============
+document.getElementById('prevBtn').onclick = () => {
+  viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+  renderCalendar();
+};
+document.getElementById('nextBtn').onclick = () => {
+  viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  renderCalendar();
+};
+document.getElementById('todayBtn').onclick = () => {
+  viewYear = today.getFullYear(); viewMonth = today.getMonth();
+  renderCalendar();
+};
+
+// ============ 저장바 ============
+document.getElementById('saveBtn').onclick = commitPending;
+document.getElementById('cancelBtn').onclick = () => {
+  pendingChanges.clear();
+  render();
+};
+
+// ============ 초기 부팅 ============
+const urlRoom = getRoomFromUrl();
+if (urlRoom) {
+  connectRoom(urlRoom);
+} else {
+  render();
+}
+</script>
+</body>
+</html>
